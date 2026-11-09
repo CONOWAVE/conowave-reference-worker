@@ -1,4 +1,4 @@
-# conowave-referenz-index
+# conowave-reference-worker
 
 Cloudflare Worker für den Artikelfuß auf conowave.com. Er dreht die Beziehung
 zwischen Referenzprojekten und Produkten um und legt das Ergebnis dort ab, wo

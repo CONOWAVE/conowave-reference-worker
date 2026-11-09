@@ -1,5 +1,5 @@
 /**
- * conowave-referenz-index
+ * conowave-reference-worker
  *
  * Baut den Umkehrindex Projekt zu Produkt fuer den Artikelfuss auf
  * conowave.com. Ausloeser: Cron zweimal taeglich und die Shopify-Webhooks
@@ -77,7 +77,7 @@ export default {
     if (request.method === 'GET' && url.pathname === '/health') {
       const letzter = await letzterLauf(env);
       return json({
-        dienst: 'conowave-referenz-index',
+        dienst: 'conowave-reference-worker',
         shop: env.SHOPIFY_SHOP,
         letzter_lauf: letzter || null,
       });
