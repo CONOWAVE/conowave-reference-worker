@@ -83,7 +83,13 @@ export default {
       });
     }
 
-    if (request.method === 'POST' && url.pathname === '/webhook/metaobject') {
+    /* Ein Endpunkt fuer alle Themen. Die Nutzlast wird ohnehin nicht gelesen,
+       also ist es gleich, ob metaobjects/* oder articles/* ihn ausloest.
+       /webhook/metaobject bleibt als Zweitname bestehen. */
+    if (
+      request.method === 'POST' &&
+      (url.pathname === '/webhook/shopify' || url.pathname === '/webhook/metaobject')
+    ) {
       const roh = await request.text();
       const signatur = request.headers.get('X-Shopify-Hmac-Sha256');
 

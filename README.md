@@ -62,7 +62,7 @@ gälte der misslungene Schreibvorgang beim nächsten Lauf als erledigt.
 
 | Pfad | Zweck |
 |---|---|
-| `POST /webhook/metaobject` | Shopify-Webhook, HMAC-geprüft, gedrosselt |
+| `POST /webhook/shopify` | Shopify-Webhook, HMAC-geprüft, gedrosselt (Zweitname `/webhook/metaobject`) |
 | `POST /run` | manueller Anstoß, `Authorization: Bearer <ADMIN_TOKEN>` |
 | `POST /run?force=1` | manueller Anstoß ohne Drosselung |
 | `GET /health` | Zeitpunkt und Ergebnis des letzten Laufs |
@@ -71,12 +71,26 @@ gälte der misslungene Schreibvorgang beim nächsten Lauf als erledigt.
 
 ## Auslöser
 
-**Cron, zweimal täglich**, `0 5,15 * * *` UTC, also 06:00 und 16:00 deutscher
-Zeit im Winter. Grundsicherung, greift auch wenn ein Webhook verloren geht.
+**Kein Cron.** Das Konto ist auf Workers Free und hat die fünf Cron-Trigger je
+Konto bereits ausgeschöpft. Der Deploy scheitert sonst mit Fehler 10072.
 
-**Webhooks** `metaobjects/create` und `metaobjects/update`. Beide verlangen
-zwingend einen Filter in der Form `type:projekt`, sonst lehnt Shopify das Abo
-ab.
+**Webhooks, vier Abos auf denselben Endpunkt:**
+
+| Thema | Filter | wofür |
+|---|---|---|
+| `metaobjects/create` | `type:projekt` | neues Projekt |
+| `metaobjects/update` | `type:projekt` | Projekt geändert, etwa Produkte oder Flagship |
+| `articles/create` | keiner | neuer Blogbeitrag |
+| `articles/update` | keiner | Beitrag gespeichert, Index ist beim Veröffentlichen frisch |
+
+Die beiden `metaobjects`-Themen verlangen zwingend einen Filter in der Form
+`type:projekt`, sonst lehnt Shopify das Abo ab.
+
+Die `articles`-Themen ändern am Index sachlich nichts, der hängt allein an den
+Projekten. Sie sorgen dafür, dass der Index in dem Moment aktuell ist, in dem
+jemand einen Beitrag speichert und gleich darauf anschaut. Vorsicht: ob ein
+reiner Metafeld-Wechsel am Beitrag `articles/update` auslöst, ist nicht
+garantiert. Beim Speichern des Beitragsinhalts feuert es zuverlässig.
 
 **Drosselung, 120 Sekunden.** Ein Massenimport löst sonst 223 Läufe aus. Wird
 ein Ereignis im Fenster abgewiesen, merkt sich der Worker das und läuft gleich
@@ -135,7 +149,7 @@ mutation {
   webhookSubscriptionCreate(
     topic: METAOBJECTS_UPDATE
     webhookSubscription: {
-      callbackUrl: "https://<worker>/webhook/metaobject"
+      callbackUrl: "https://<worker>/webhook/shopify"
       format: JSON
       filter: "type:projekt"
     }
@@ -143,7 +157,8 @@ mutation {
 }
 ```
 
-Dasselbe noch einmal mit `METAOBJECTS_CREATE`.
+Dasselbe mit `METAOBJECTS_CREATE`, sowie mit `ARTICLES_CREATE` und
+`ARTICLES_UPDATE`, dort ohne `filter`.
 
 ### 6. Erster Lauf
 
@@ -169,6 +184,10 @@ verschwinden, lassen sich die Produkt-Metafelder und die `referenzpool`-
 Einträge leeren, dann greift die Vorrangregel der Section eine Stufe tiefer.
 
 Überwachung: `/health` und das Cloudflare-Log. Kein zusätzlicher Alarmweg.
+
+Ohne Cron gibt es kein Netz für verlorene Webhooks. Fällt einer aus, bleibt der
+Index so lange veraltet, bis das nächste Projekt oder der nächste Beitrag
+gespeichert wird. Notfalls `POST /run?force=1`.
 
 ---
 

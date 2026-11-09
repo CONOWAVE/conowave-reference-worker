@@ -3,10 +3,11 @@ main = "src/index.js"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
-# 05:00 und 15:00 UTC, also 06:00 und 16:00 deutscher Zeit im Winter.
-# Grundsicherung, greift auch wenn ein Webhook verloren geht.
-[triggers]
-crons = ["0 5,15 * * *"]
+# Kein Cron. Das Konto ist auf Workers Free und hat die 5 Cron-Trigger je
+# Konto bereits ausgeschoepft. Ausgeloest wird ueber Webhooks:
+#   metaobjects/create und metaobjects/update, Filter type:projekt
+#   articles/create und articles/update
+# Der manuelle Anstoss ueber POST /run bleibt als Rueckfallebene.
 
 [vars]
 SHOPIFY_SHOP = "prfu7j-1q.myshopify.com"
