@@ -10,7 +10,7 @@ crons = ["0 5,15 * * *"]
 
 [vars]
 SHOPIFY_SHOP = "prfu7j-1q.myshopify.com"
-SHOPIFY_API_VERSION = "2025-10"
+SHOPIFY_API_VERSION = "2026-04"
 
 # Secrets, nicht hier eintragen, sondern:
 #   wrangler secret put SHOPIFY_CLIENT_ID
