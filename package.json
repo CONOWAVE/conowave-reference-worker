@@ -1,0 +1,16 @@
+{
+  "name": "conowave-reference-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Umkehrindex Projekt zu Produkt fuer den Artikelfuss auf conowave.com",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "4.42.0"
+  }
+}

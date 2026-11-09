@@ -1,0 +1,26 @@
+name = "conowave-referenz-index"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 05:00 und 15:00 UTC, also 06:00 und 16:00 deutscher Zeit im Winter.
+# Grundsicherung, greift auch wenn ein Webhook verloren geht.
+[triggers]
+crons = ["0 5,15 * * *"]
+
+[vars]
+SHOPIFY_SHOP = "prfu7j-1q.myshopify.com"
+SHOPIFY_API_VERSION = "2025-10"
+
+# Secrets, nicht hier eintragen, sondern:
+#   wrangler secret put SHOPIFY_CLIENT_ID
+#   wrangler secret put SHOPIFY_CLIENT_SECRET
+#   wrangler secret put SHOPIFY_WEBHOOK_SECRET
+#   wrangler secret put ADMIN_TOKEN
+
+[[kv_namespaces]]
+binding = "REF_CACHE"
+id = "HIER_KV_ID_EINTRAGEN"
+
+[observability]
+enabled = true
