@@ -20,7 +20,7 @@ SHOPIFY_API_VERSION = "2026-04"
 
 [[kv_namespaces]]
 binding = "REF_CACHE"
-id = "HIER_KV_ID_EINTRAGEN"
+id = "2dd45716a7a542a39c4885544ed46ee9"
 
 [observability]
 enabled = true
