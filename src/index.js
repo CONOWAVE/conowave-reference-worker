@@ -109,11 +109,18 @@ export default {
         return json({ fehler: 'nicht berechtigt' }, 401);
       }
 
-      const erzwingen = url.searchParams.get('force') === '1';
-      if (erzwingen) {
-        return json(await lauf(env, 'manuell-erzwungen'));
+      /* Fehler hier als JSON zurueckgeben statt als Worker-Ausnahme.
+         Sonst sieht der Aufrufer nur "error code: 1101". */
+      try {
+        const erzwingen = url.searchParams.get('force') === '1';
+        if (erzwingen) {
+          return json(await lauf(env, 'manuell-erzwungen'));
+        }
+        return json(await angestossen(env, 'manuell'));
+      } catch (e) {
+        console.error(`Lauf abgebrochen: ${e.message}`);
+        return json({ fehler: e.message, stack: e.stack }, 500);
       }
-      return json(await angestossen(env, 'manuell'));
     }
 
     return json({ fehler: 'nicht gefunden' }, 404);

@@ -148,11 +148,24 @@ export async function lauf(env, anlass = 'manuell') {
   /* 1. Feldschluessel des Pools ermitteln, statt sie zu raten. */
   const def = await graphql(env, Q_DEFINITION, { type: POOL_TYP });
   const poolFelder = def.metaobjectDefinitionByType?.fieldDefinitions || [];
-  const projekteFeld = poolFelder.find((f) => f.type?.name === 'list.metaobject_reference');
+  const felderKlartext = poolFelder.map((f) => `${f.key}=${f.type?.name}`).join(', ');
+  console.log(`${POOL_TYP} Felder: ${felderKlartext}`);
+  protokoll.pool_felder = felderKlartext;
+
+  /* Nicht auf einen exakten Typnamen festnageln: Shopify nennt eine
+     Metaobjekt-Liste je nach Definition list.metaobject_reference oder
+     list.mixed_reference. Zur Sicherheit noch ein Griff nach dem Schluessel. */
+  const projekteFeld =
+    poolFelder.find((f) => f.type?.name === 'list.metaobject_reference') ||
+    poolFelder.find((f) => /^list\..*reference$/.test(f.type?.name || '')) ||
+    poolFelder.find((f) => /projekt/i.test(f.key));
+
   const nameFeld = poolFelder.find((f) => f.type?.name === 'single_line_text_field');
 
   if (!projekteFeld) {
-    throw new Error(`Im Metaobjekt ${POOL_TYP} fehlt ein Feld vom Typ list.metaobject_reference`);
+    throw new Error(
+      `Im Metaobjekt ${POOL_TYP} ist kein Projektfeld erkennbar. Vorhandene Felder: ${felderKlartext || 'keine'}`,
+    );
   }
 
   /* 2. Alle Projekte lesen. 223 Stueck, also eine Seite, die Schleife ist Vorsorge. */
