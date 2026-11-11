@@ -39,6 +39,21 @@ const Q_DEFINITION = `
   }
 `;
 
+/* Die Feldschluessel des Pools kommen aus einem vorhandenen Eintrag, nicht aus
+   der Definition. metaobjectDefinitionByType lieferte null, vermutlich fehlt
+   dem Token read_metaobject_definitions. Eintraege zu lesen reicht voellig. */
+const Q_POOL_EINTRAEGE = `
+  query PoolEintraege {
+    metaobjects(type: "${POOL_TYP}", first: 25) {
+      nodes {
+        id
+        handle
+        fields { key type }
+      }
+    }
+  }
+`;
+
 const Q_PROJEKTE = `
   query Projekte($after: String) {
     metaobjects(type: "${PROJEKT_TYP}", first: 250, after: $after) {
@@ -145,26 +160,51 @@ export async function lauf(env, anlass = 'manuell') {
     fehler: [],
   };
 
-  /* 1. Feldschluessel des Pools ermitteln, statt sie zu raten. */
-  const def = await graphql(env, Q_DEFINITION, { type: POOL_TYP });
-  const poolFelder = def.metaobjectDefinitionByType?.fieldDefinitions || [];
-  const felderKlartext = poolFelder.map((f) => `${f.key}=${f.type?.name}`).join(', ');
-  console.log(`${POOL_TYP} Felder: ${felderKlartext}`);
+  /* 1. Feldschluessel des Pools ermitteln, statt sie zu raten.
+        Erst aus einem vorhandenen Eintrag, das braucht nur read_metaobjects.
+        Nur wenn gar kein Eintrag existiert, die Definition befragen. */
+  let poolFelder = [];
+  let quelleDerFelder = 'eintrag';
+
+  const poolDaten = await graphql(env, Q_POOL_EINTRAEGE);
+  const poolNodes = poolDaten.metaobjects?.nodes || [];
+  protokoll.pool_eintraege = poolNodes.map((n) => n.handle);
+
+  for (const node of poolNodes) {
+    if (node.fields?.length) {
+      poolFelder = node.fields.map((f) => ({ key: f.key, typ: f.type }));
+      break;
+    }
+  }
+
+  if (!poolFelder.length) {
+    quelleDerFelder = 'definition';
+    const def = await graphql(env, Q_DEFINITION, { type: POOL_TYP });
+    poolFelder = (def.metaobjectDefinitionByType?.fieldDefinitions || []).map((f) => ({
+      key: f.key,
+      typ: f.type?.name,
+    }));
+  }
+
+  const felderKlartext = poolFelder.map((f) => `${f.key}=${f.typ}`).join(', ');
+  console.log(`${POOL_TYP} Felder (${quelleDerFelder}): ${felderKlartext || 'keine'}`);
   protokoll.pool_felder = felderKlartext;
 
   /* Nicht auf einen exakten Typnamen festnageln: Shopify nennt eine
      Metaobjekt-Liste je nach Definition list.metaobject_reference oder
      list.mixed_reference. Zur Sicherheit noch ein Griff nach dem Schluessel. */
   const projekteFeld =
-    poolFelder.find((f) => f.type?.name === 'list.metaobject_reference') ||
-    poolFelder.find((f) => /^list\..*reference$/.test(f.type?.name || '')) ||
+    poolFelder.find((f) => f.typ === 'list.metaobject_reference') ||
+    poolFelder.find((f) => /^list\..*reference$/.test(f.typ || '')) ||
     poolFelder.find((f) => /projekt/i.test(f.key));
 
-  const nameFeld = poolFelder.find((f) => f.type?.name === 'single_line_text_field');
+  const nameFeld = poolFelder.find((f) => f.typ === 'single_line_text_field');
 
   if (!projekteFeld) {
     throw new Error(
-      `Im Metaobjekt ${POOL_TYP} ist kein Projektfeld erkennbar. Vorhandene Felder: ${felderKlartext || 'keine'}`,
+      `Im Metaobjekt ${POOL_TYP} ist kein Projektfeld erkennbar. ` +
+        `Quelle: ${quelleDerFelder}, Eintraege: ${protokoll.pool_eintraege.join('|') || 'keine'}, ` +
+        `Felder: ${felderKlartext || 'keine'}`,
     );
   }
 
