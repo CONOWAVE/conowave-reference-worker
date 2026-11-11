@@ -120,6 +120,20 @@ function felder(node) {
   return o;
 }
 
+/**
+ * Ein Feld des Metaobjekts projekt. Die Schluessel heissen ueber die Admin API
+ * custom_name, custom_branch und so weiter, mit Unterstrich. Im Admin werden
+ * sie als custom.name angezeigt, in Liquid heissen sie ebenfalls custom_name.
+ * Beide Schreibweisen werden probiert, dazu der nackte Name.
+ */
+function feldwert(f, name) {
+  const kandidaten = [`custom_${name}`, `custom.${name}`, name];
+  for (const k of kandidaten) {
+    if (f[k] !== undefined && f[k] !== null) return f[k];
+  }
+  return undefined;
+}
+
 /** Produkt-GIDs aus einem list.product_reference Rohwert. */
 function produktGids(rohwert) {
   if (!rohwert) return [];
@@ -219,10 +233,10 @@ export async function lauf(env, anlass = 'manuell') {
       projekte.push({
         gid: node.id,
         handle: node.handle,
-        name: f['custom.name'] || node.handle,
-        branche: f['custom.branch'] || '',
-        flagship: f['custom.flagship'] === 'true',
-        produkte: produktGids(f['custom.products']),
+        name: feldwert(f, 'name') || node.handle,
+        branche: feldwert(f, 'branch') || '',
+        flagship: feldwert(f, 'flagship') === 'true',
+        produkte: produktGids(feldwert(f, 'products')),
       });
     }
     after = seite.pageInfo.hasNextPage ? seite.pageInfo.endCursor : null;
