@@ -12,7 +12,7 @@
  */
 
 import { lauf, letzterLauf } from './run.js';
-import { graphql } from './shopify.js';
+import { graphql, tokenVerwerfen } from './shopify.js';
 
 /**
  * Diagnose. Fragt mehrere kleine Dinge einzeln ab und meldet je Punkt
@@ -139,6 +139,7 @@ export default {
       if (auth !== `Bearer ${env.ADMIN_TOKEN}`) {
         return json({ fehler: 'nicht berechtigt' }, 401);
       }
+      if (url.searchParams.get('token') === 'neu') await tokenVerwerfen(env);
       return json(await diagnose(env));
     }
 
@@ -151,6 +152,7 @@ export default {
       /* Fehler hier als JSON zurueckgeben statt als Worker-Ausnahme.
          Sonst sieht der Aufrufer nur "error code: 1101". */
       try {
+        if (url.searchParams.get('token') === 'neu') await tokenVerwerfen(env);
         const erzwingen = url.searchParams.get('force') === '1';
         if (erzwingen) {
           return json(await lauf(env, 'manuell-erzwungen'));

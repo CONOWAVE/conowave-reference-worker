@@ -5,7 +5,16 @@
  * Dasselbe Muster wie getAccessToken() im conowave-erp-worker.
  */
 
-const TOKEN_KEY = 'shopify:token';
+export const TOKEN_KEY = 'shopify:token';
+
+/**
+ * Wirft das zwischengespeicherte Token weg. Noetig nach jeder Scope-Aenderung
+ * an der App: ein bereits geholtes Token behaelt die alten Rechte, bis es
+ * ablaeuft, und laeuft dann still ins Leere.
+ */
+export async function tokenVerwerfen(env) {
+  await env.REF_CACHE.delete(TOKEN_KEY);
+}
 
 export async function getAccessToken(env) {
   const cached = await env.REF_CACHE.get(TOKEN_KEY, { type: 'json' });
