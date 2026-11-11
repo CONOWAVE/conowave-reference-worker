@@ -12,6 +12,37 @@
  */
 
 import { lauf, letzterLauf } from './run.js';
+import { graphql } from './shopify.js';
+
+/**
+ * Diagnose. Fragt mehrere kleine Dinge einzeln ab und meldet je Punkt
+ * entweder das Ergebnis oder den Fehler. Damit laesst sich klaeren, mit
+ * welchem Shop der Worker spricht und welche Rechte das Token wirklich hat.
+ */
+async function diagnose(env) {
+  const teile = {
+    shop_laut_konfiguration: env.SHOPIFY_SHOP,
+    api_version: env.SHOPIFY_API_VERSION,
+  };
+
+  const fragen = {
+    shop: `{ shop { name myshopifyDomain } }`,
+    rechte: `{ currentAppInstallation { accessScopes { handle } } }`,
+    definitionen: `{ metaobjectDefinitions(first: 50) { nodes { type name } } }`,
+    referenzpool: `{ metaobjects(type: "referenzpool", first: 5) { nodes { handle fields { key type } } } }`,
+    projekt: `{ metaobjects(type: "projekt", first: 2) { nodes { handle fields { key } } } }`,
+  };
+
+  for (const [name, frage] of Object.entries(fragen)) {
+    try {
+      teile[name] = await graphql(env, frage);
+    } catch (e) {
+      teile[name] = { fehler: e.message };
+    }
+  }
+
+  return teile;
+}
 
 const DROSSEL_MS = 120_000;
 const KV_DROSSEL = 'drossel:bis';
@@ -101,6 +132,14 @@ export default {
          verarbeitet, der Lauf liest ohnehin alles neu. */
       ctx.waitUntil(angestossen(env, 'webhook'));
       return json({ angenommen: true });
+    }
+
+    if (request.method === 'POST' && url.pathname === '/diag') {
+      const auth = request.headers.get('Authorization') || '';
+      if (auth !== `Bearer ${env.ADMIN_TOKEN}`) {
+        return json({ fehler: 'nicht berechtigt' }, 401);
+      }
+      return json(await diagnose(env));
     }
 
     if (request.method === 'POST' && url.pathname === '/run') {
