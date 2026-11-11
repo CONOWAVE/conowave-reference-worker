@@ -1,5 +1,5 @@
 {
-  "name": "CONOWAVE Referenz-Index taeglicher Lauf",
+  "name": "CONOWAVE Referenz-Index stuendlicher Lauf",
   "nodes": [
     {
       "parameters": {
@@ -7,16 +7,19 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "0 6 * * *"
+              "expression": "41 * * * *"
             }
           ]
         }
       },
       "id": "a1000000-0000-4000-8000-000000000001",
-      "name": "Taeglich 06:00",
+      "name": "Stuendlich zur Minute 41",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-200, 0]
+      "position": [
+        -200,
+        0
+      ]
     },
     {
       "parameters": {
@@ -38,7 +41,10 @@
       "name": "Referenz-Index anstossen",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [20, 0]
+      "position": [
+        20,
+        0
+      ]
     },
     {
       "parameters": {
@@ -75,11 +81,14 @@
       "name": "Lauf fehlgeschlagen?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [240, 0]
+      "position": [
+        240,
+        0
+      ]
     },
     {
       "parameters": {
-        "content": "## CONOWAVE Referenz-Index\n\nTaeglicher Anstoss des Workers\nconowave-reference-worker.\n\n**Nur Netz, kein Normalbetrieb.** Im\nNormalfall halten die drei\nShopify-Webhooks auf\nmetaobjects/* den Index aktuell.\nDieser Ablauf faengt nur den Fall\nab, dass ein Webhook verloren geht.\n\n**Temporaer.** Er ersetzt den\nCloudflare-Cron, weil das Konto auf\nWorkers Free die fuenf Cron-Trigger\nje Konto ausgeschoepft hat. Sobald\nWorkers Paid gebucht ist, wandert\nder Zeitplan zurueck in die\nwrangler.toml und dieser Ablauf\nkann abgeschaltet werden.\n\n**Zugang:** Header-Auth-Credential\nmit Name `Authorization` und Wert\n`Bearer <ADMIN_TOKEN>`. Der Token\nsteht in Cloudflare unter Settings,\nVariables and secrets.\n\nDer true-Zweig des IF ist bewusst\nleer. Dort gehoert eure uebliche\nBenachrichtigung hin.",
+        "content": "## CONOWAVE Referenz-Index\n\nStuendlicher Anstoss des Workers\nconowave-reference-worker.\n\n**Nur Netz, kein Normalbetrieb.** Im\nNormalfall halten die drei\nShopify-Webhooks auf\nmetaobjects/* den Index aktuell.\nDieser Ablauf faengt nur den Fall\nab, dass ein Webhook verloren geht.\n\n**Temporaer.** Er ersetzt den\nCloudflare-Cron, weil das Konto auf\nWorkers Free die fuenf Cron-Trigger\nje Konto ausgeschoepft hat. Sobald\nWorkers Paid gebucht ist, wandert\nder Zeitplan zurueck in die\nwrangler.toml und dieser Ablauf\nkann abgeschaltet werden.\n\n**Zugang:** Header-Auth-Credential\nmit Name `Authorization` und Wert\n`Bearer <ADMIN_TOKEN>`. Der Token\nsteht in Cloudflare unter Settings,\nVariables and secrets.\n\nDer true-Zweig des IF ist bewusst\nleer. Dort gehoert eure uebliche\nBenachrichtigung hin.",
         "height": 560,
         "width": 340
       },
@@ -87,15 +96,34 @@
       "name": "Hinweise",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-600, -160]
+      "position": [
+        -600,
+        -160
+      ]
     }
   ],
   "connections": {
-    "Taeglich 06:00": {
-      "main": [[{ "node": "Referenz-Index anstossen", "type": "main", "index": 0 }]]
+    "Stuendlich zur Minute 41": {
+      "main": [
+        [
+          {
+            "node": "Referenz-Index anstossen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Referenz-Index anstossen": {
-      "main": [[{ "node": "Lauf fehlgeschlagen?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Lauf fehlgeschlagen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {

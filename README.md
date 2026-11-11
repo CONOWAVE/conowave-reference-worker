@@ -109,7 +109,13 @@ verarbeitet, nur die Signatur geprüft.
 ### Das Netz, vorerst über n8n
 
 Ohne Cron veraltet der Index, wenn ein Webhook ausfällt, bis zur nächsten
-Projektänderung. Deshalb ruft n8n täglich um 06:00 `POST /run?force=1` auf.
+Projektänderung. Deshalb ruft n8n stündlich zur Minute 41
+`POST /run?force=1` auf. Minute 41, damit der Lauf nicht mit den anderen
+CONOWAVE-Zeitplänen kollidiert.
+
+Stündlich ist unbedenklich, weil der Lauf Prüfsummen vergleicht und nur
+schreibt, was sich geändert hat. Ein Lauf ohne Änderungen rührt kein
+einziges Metafeld an und braucht unter einer Sekunde.
 
 `n8n-referenz-index-lauf.json` im Repo lässt sich in n8n importieren. Der
 Zugang läuft über ein Header-Auth-Credential, Name `Authorization`, Wert
