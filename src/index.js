@@ -13,7 +13,7 @@
 
 import { lauf, letzterLauf } from './run.js';
 import { graphql, tokenVerwerfen } from './shopify.js';
-import { aboListe, abosEinrichten, abosEntfernen } from './webhooks.js';
+import { aboListe, abosEinrichten, abosEntfernen, themenListe } from './webhooks.js';
 
 /**
  * Diagnose. Fragt mehrere kleine Dinge einzeln ab und meldet je Punkt
@@ -141,6 +141,9 @@ export default {
         return json({ fehler: 'nicht berechtigt' }, 401);
       }
       try {
+        if (request.method === 'GET' && url.searchParams.has('themen')) {
+          return json(await themenListe(env, url.searchParams.get('themen')));
+        }
         if (request.method === 'GET') return json({ abos: await aboListe(env) });
         if (request.method === 'POST') return json(await abosEinrichten(env, request));
         if (request.method === 'DELETE') return json(await abosEntfernen(env, request));

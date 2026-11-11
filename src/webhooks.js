@@ -56,6 +56,12 @@ const M_AENDERN = `
   }
 `;
 
+/* Welche Themen die API-Version ueberhaupt kennt. Die Namen aendern sich
+   zwischen den Versionen, ARTICLES_CREATE etwa gibt es in 2026-04 nicht mehr. */
+const Q_THEMEN = `
+  { __type(name: "WebhookSubscriptionTopic") { enumValues { name } } }
+`;
+
 const M_LOESCHEN = `
   mutation Loeschen($id: ID!) {
     webhookSubscriptionDelete(id: $id) {
@@ -78,6 +84,17 @@ function vorhandene(daten) {
   }));
 }
 
+/**
+ * Themennamen, die diese API-Version kennt, gefiltert nach einem Suchwort.
+ * Ohne Suchwort kommen nur die interessanten Gruppen.
+ */
+export async function themenListe(env, suche) {
+  const daten = await graphql(env, Q_THEMEN);
+  const alle = (daten.__type?.enumValues || []).map((e) => e.name);
+  const muster = suche ? new RegExp(suche, 'i') : /ARTICLE|BLOG|METAOBJECT|PAGE/i;
+  return { gesamt: alle.length, treffer: alle.filter((n) => muster.test(n)) };
+}
+
 /** Nur anzeigen, was bereits eingerichtet ist. */
 export async function aboListe(env) {
   const daten = await graphql(env, Q_ABOS);
@@ -94,34 +111,42 @@ export async function abosEinrichten(env, request) {
 
   const ergebnis = { endpunkt: url, angelegt: [], korrigiert: [], unveraendert: [], fehler: [] };
 
+  /* Jedes Thema fuer sich. Kennt die API-Version eines nicht, soll das die
+     uebrigen drei nicht mit zu Fall bringen. */
   for (const wunsch of GEWUENSCHT) {
-    const treffer = bestand.find((b) => b.topic === wunsch.topic && b.url === url);
-    const sub = { callbackUrl: url, format: 'JSON' };
-    if (wunsch.filter) sub.filter = wunsch.filter;
+    try {
+      const treffer = bestand.find((b) => b.topic === wunsch.topic && b.url === url);
+      const sub = { callbackUrl: url, format: 'JSON' };
+      if (wunsch.filter) sub.filter = wunsch.filter;
 
-    if (!treffer) {
-      const erg = await graphql(env, M_ANLEGEN, { topic: wunsch.topic, sub });
-      const fehler = userErrors(erg);
-      if (fehler.length) {
-        ergebnis.fehler.push(`${wunsch.topic}: ${fehler.map((f) => f.message).join('; ')}`);
-      } else {
-        ergebnis.angelegt.push(wunsch.topic);
+      if (!treffer) {
+        const erg = await graphql(env, M_ANLEGEN, { topic: wunsch.topic, sub });
+        const fehler = userErrors(erg);
+        if (fehler.length) {
+          ergebnis.fehler.push(`${wunsch.topic}: ${fehler.map((f) => f.message).join('; ')}`);
+        } else {
+          ergebnis.angelegt.push(wunsch.topic);
+        }
+        continue;
       }
-      continue;
-    }
 
-    if ((treffer.filter || null) !== (wunsch.filter || null)) {
-      const erg = await graphql(env, M_AENDERN, { id: treffer.id, sub });
-      const fehler = userErrors(erg);
-      if (fehler.length) {
-        ergebnis.fehler.push(`${wunsch.topic} korrigieren: ${fehler.map((f) => f.message).join('; ')}`);
-      } else {
-        ergebnis.korrigiert.push(`${wunsch.topic}: Filter ${treffer.filter || 'keiner'} -> ${wunsch.filter || 'keiner'}`);
+      if ((treffer.filter || null) !== (wunsch.filter || null)) {
+        const erg = await graphql(env, M_AENDERN, { id: treffer.id, sub });
+        const fehler = userErrors(erg);
+        if (fehler.length) {
+          ergebnis.fehler.push(`${wunsch.topic} korrigieren: ${fehler.map((f) => f.message).join('; ')}`);
+        } else {
+          ergebnis.korrigiert.push(
+            `${wunsch.topic}: Filter ${treffer.filter || 'keiner'} -> ${wunsch.filter || 'keiner'}`,
+          );
+        }
+        continue;
       }
-      continue;
-    }
 
-    ergebnis.unveraendert.push(wunsch.topic);
+      ergebnis.unveraendert.push(wunsch.topic);
+    } catch (e) {
+      ergebnis.fehler.push(`${wunsch.topic}: ${e.message}`);
+    }
   }
 
   ergebnis.stand = await aboListe(env);
