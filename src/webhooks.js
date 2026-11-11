@@ -15,11 +15,18 @@ import { graphql, userErrors } from './shopify.js';
 
 const PFAD = '/webhook/shopify';
 
+/*
+ * Shopify kennt keine Webhooks fuer Blogbeitraege. Von 223 Themen in
+ * API-Version 2026-04 passt kein einziges auf ARTICLE, BLOG oder PAGE.
+ * Das ist kein Verlust: der Index haengt ohnehin allein an den Projekten.
+ *
+ * METAOBJECTS_DELETE gehoert dazu, damit ein geloeschtes Projekt auch aus
+ * dem Index faellt, statt dort als toter Verweis stehen zu bleiben.
+ */
 const GEWUENSCHT = [
   { topic: 'METAOBJECTS_CREATE', filter: 'type:projekt' },
   { topic: 'METAOBJECTS_UPDATE', filter: 'type:projekt' },
-  { topic: 'ARTICLES_CREATE', filter: null },
-  { topic: 'ARTICLES_UPDATE', filter: null },
+  { topic: 'METAOBJECTS_DELETE', filter: 'type:projekt' },
 ];
 
 const Q_ABOS = `
