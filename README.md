@@ -74,23 +74,30 @@ gälte der misslungene Schreibvorgang beim nächsten Lauf als erledigt.
 **Kein Cron.** Das Konto ist auf Workers Free und hat die fünf Cron-Trigger je
 Konto bereits ausgeschöpft. Der Deploy scheitert sonst mit Fehler 10072.
 
-**Webhooks, vier Abos auf denselben Endpunkt:**
+**Drei Webhook-Abos auf denselben Endpunkt**, alle mit Filter `type:projekt`:
 
-| Thema | Filter | wofür |
-|---|---|---|
-| `metaobjects/create` | `type:projekt` | neues Projekt |
-| `metaobjects/update` | `type:projekt` | Projekt geändert, etwa Produkte oder Flagship |
-| `articles/create` | keiner | neuer Blogbeitrag |
-| `articles/update` | keiner | Beitrag gespeichert, Index ist beim Veröffentlichen frisch |
+| Thema | wofür |
+|---|---|
+| `metaobjects/create` | neues Projekt |
+| `metaobjects/update` | Projekt geändert, etwa Produkte oder Flagship |
+| `metaobjects/delete` | gelöschtes Projekt fällt aus dem Index |
 
-Die beiden `metaobjects`-Themen verlangen zwingend einen Filter in der Form
-`type:projekt`, sonst lehnt Shopify das Abo ab.
+Der Filter ist nicht optional, ohne ihn lehnt Shopify das Abo ab.
 
-Die `articles`-Themen ändern am Index sachlich nichts, der hängt allein an den
-Projekten. Sie sorgen dafür, dass der Index in dem Moment aktuell ist, in dem
-jemand einen Beitrag speichert und gleich darauf anschaut. Vorsicht: ob ein
-reiner Metafeld-Wechsel am Beitrag `articles/update` auslöst, ist nicht
-garantiert. Beim Speichern des Beitragsinhalts feuert es zuverlässig.
+**Shopify hat keine Webhooks für Blogbeiträge.** Von 223 Themen in
+API-Version 2026-04 passt kein einziges auf ARTICLE, BLOG oder PAGE. Ein
+früherer Plan, den Index beim Speichern eines Beitrags anzustoßen, ist damit
+hinfällig. Praktisch ist das kein Verlust, der Index hängt allein an den
+Projekten.
+
+Einrichten über den Worker selbst:
+
+```
+POST /webhooks    stellt die Abos her, wiederholbar
+GET  /webhooks    zeigt den Bestand
+GET  /webhooks?themen=   zeigt die Themennamen dieser API-Version
+DELETE /webhooks  entfernt alle Abos, die auf diesen Worker zeigen
+```
 
 **Drosselung, 120 Sekunden.** Ein Massenimport löst sonst 223 Läufe aus. Wird
 ein Ereignis im Fenster abgewiesen, merkt sich der Worker das und läuft gleich
@@ -99,20 +106,37 @@ nach dem laufenden Durchgang noch einmal. Nichts geht verloren.
 Die Webhook-Nutzlast ist ein Signal, keine Datenquelle. Ihr Inhalt wird nicht
 verarbeitet, nur die Signatur geprüft.
 
+### Das Netz, vorerst über n8n
+
+Ohne Cron veraltet der Index, wenn ein Webhook ausfällt, bis zur nächsten
+Projektänderung. Deshalb ruft n8n täglich um 06:00 `POST /run?force=1` auf.
+
+`n8n-referenz-index-lauf.json` im Repo lässt sich in n8n importieren. Der
+Zugang läuft über ein Header-Auth-Credential, Name `Authorization`, Wert
+`Bearer <ADMIN_TOKEN>`. Der Token steht nicht in der Datei.
+
+**Das ist eine Übergangslösung.** Sobald Workers Paid gebucht ist, die beiden
+auskommentierten Zeilen in `wrangler.toml` wieder aktivieren und den
+n8n-Ablauf abschalten. Nicht beides laufen lassen, das verdoppelt nur die
+Schreibvorgänge ohne Nutzen.
+
 ---
 
 ## Einrichtung
 
 ### 1. App-Scopes
 
-Der Worker benutzt die bestehende App **Import-API**. Sie hat bereits
-`read_metaobjects`, `write_metaobjects`, `read_metaobject_definitions`,
-`write_metaobject_definitions` und `read_products`.
+Der Worker benutzt die bestehende App **Import-API**,
+Client-ID `ca8442cc5d35997e2bdb633f838386f4`. Seit Version `import-api-8`
+hat sie alle noetigen Rechte, darunter `read_metaobjects`,
+`write_metaobjects`, `read_products` und `write_products`.
 
-**Es fehlt `write_products`.** Scope erweitern heißt: neue Version im Dev
-Dashboard veröffentlichen **und die Installation neu bestätigen**
-(„Datenzugriff aktualisieren"). Ohne den zweiten Schritt behält das Token die
-alten Scopes. Dieser Stolperstein ist im Projekt bereits mehrfach aufgelaufen.
+**Falls Scopes später erneut erweitert werden:** neue Version im Dev
+Dashboard veröffentlichen, die Installation im Shop neu bestätigen
+(„Datenzugriff aktualisieren") **und** das zwischengespeicherte Token mit
+`?token=neu` verwerfen. Fehlt einer dieser drei Schritte, arbeitet der Worker
+still mit den alten Rechten weiter. Shopify liefert bei fehlendem Recht keine
+Fehlermeldung, sondern eine leere Liste.
 
 ### 2. KV-Namespace
 
@@ -120,7 +144,8 @@ alten Scopes. Dieser Stolperstein ist im Projekt bereits mehrfach aufgelaufen.
 wrangler kv namespace create REF_CACHE
 ```
 
-Die ausgegebene `id` in `wrangler.toml` eintragen.
+Die ausgegebene `id` in `wrangler.toml` eintragen. Angelegt ist
+`conowave-reference-worker-REF_CACHE`, ID `2dd45716a7a542a39c4885544ed46ee9`.
 
 ### 3. Secrets
 
@@ -142,7 +167,7 @@ keinen Quelltext außerhalb von Cloudflare, diesen Fehler wiederholen wir nicht.
 
 ### 5. Webhooks anlegen
 
-Nach dem ersten Ausrollen, mit der Worker-URL:
+Am einfachsten über den Worker selbst, siehe oben. Von Hand ginge es so:
 
 ```graphql
 mutation {
@@ -157,8 +182,7 @@ mutation {
 }
 ```
 
-Dasselbe mit `METAOBJECTS_CREATE`, sowie mit `ARTICLES_CREATE` und
-`ARTICLES_UPDATE`, dort ohne `filter`.
+Einfacher ist `POST /webhooks`, siehe oben.
 
 ### 6. Erster Lauf
 
@@ -166,10 +190,14 @@ Dasselbe mit `METAOBJECTS_CREATE`, sowie mit `ARTICLES_CREATE` und
 curl -X POST https://<worker>/run?force=1 -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-Das Protokoll zeigt unter anderem, wie viele Produkte überhaupt im Index
-landen. Aus der Migration ist bekannt, dass die Produktverweise nicht lückenlos
-sind: von 21 in WordPress verwendeten Produkten ließen sich nur 10 eindeutig
-auf Shopify-Produkte abbilden. Der erste Lauf macht diese Lücken sichtbar.
+Der erste Lauf am 11.11.2026 ergab: 223 Projekte gelesen, 10 Produkte im
+Index, 6 Branchenpools geschrieben, keine Fehler, 3,1 Sekunden.
+
+Die 10 bestätigen den Migrationsbefund: von 21 in WordPress verwendeten
+Produkten ließen sich nur 10 eindeutig auf Shopify-Produkte abbilden. Für
+Quelle 3 des Artikelfußes heißt das, sie greift nur bei Kollektionen, die
+eines dieser 10 Produkte enthalten. Das ist Pflegearbeit an den Projekten,
+nichts Technisches.
 
 ---
 

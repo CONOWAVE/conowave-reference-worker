@@ -3,11 +3,21 @@ main = "src/index.js"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Kein Cron. Das Konto ist auf Workers Free und hat die 5 Cron-Trigger je
-# Konto bereits ausgeschoepft. Ausgeloest wird ueber Webhooks:
-#   metaobjects/create und metaobjects/update, Filter type:projekt
-#   articles/create und articles/update
-# Der manuelle Anstoss ueber POST /run bleibt als Rueckfallebene.
+# Ausgeloest wird vor allem ueber Webhooks, siehe README:
+#   metaobjects/create, metaobjects/update, metaobjects/delete
+#   jeweils mit Filter type:projekt
+#
+# Das Netz fuer verlorene Webhooks laeuft vorerst ueber n8n, ein taeglicher
+# Aufruf auf POST /run. Grund: Cron-Trigger sind auf Workers Free auf fuenf
+# je Konto begrenzt und waren bereits ausgeschoepft, verteilt auf
+# conowave-erp-worker und conowave-b2b-worker.
+#
+# Sobald Workers Paid gebucht ist, die folgenden zwei Zeilen einkommentieren
+# und den n8n-Ablauf abschalten. 05:00 und 15:00 UTC sind 06:00 und 16:00
+# deutscher Zeit im Winter.
+#
+# [triggers]
+# crons = ["0 5,15 * * *"]
 
 [vars]
 SHOPIFY_SHOP = "prfu7j-1q.myshopify.com"
