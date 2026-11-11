@@ -13,6 +13,7 @@
 
 import { lauf, letzterLauf } from './run.js';
 import { graphql, tokenVerwerfen } from './shopify.js';
+import { aboListe, abosEinrichten, abosEntfernen } from './webhooks.js';
 
 /**
  * Diagnose. Fragt mehrere kleine Dinge einzeln ab und meldet je Punkt
@@ -132,6 +133,22 @@ export default {
          verarbeitet, der Lauf liest ohnehin alles neu. */
       ctx.waitUntil(angestossen(env, 'webhook'));
       return json({ angenommen: true });
+    }
+
+    if (url.pathname === '/webhooks') {
+      const auth = request.headers.get('Authorization') || '';
+      if (auth !== `Bearer ${env.ADMIN_TOKEN}`) {
+        return json({ fehler: 'nicht berechtigt' }, 401);
+      }
+      try {
+        if (request.method === 'GET') return json({ abos: await aboListe(env) });
+        if (request.method === 'POST') return json(await abosEinrichten(env, request));
+        if (request.method === 'DELETE') return json(await abosEntfernen(env, request));
+        return json({ fehler: 'Methode nicht erlaubt' }, 405);
+      } catch (e) {
+        console.error(`Webhook-Verwaltung fehlgeschlagen: ${e.message}`);
+        return json({ fehler: e.message }, 500);
+      }
     }
 
     if (request.method === 'POST' && url.pathname === '/diag') {
